@@ -32,154 +32,167 @@ const units = [
   "杯",
   "袋",
   "パック",
+  "適量",
+  "少々",
 ];
 
 const categories: Category[] = ["主菜", "副菜", "その他"];
 
 export default function Home() {
-  const [recipes, setRecipes] =
-    useState<Recipe[]>(initialRecipes);
+  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
 
-  const [selectedRecipe, setSelectedRecipe] =
-    useState<string[]>([]);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  const [shoppingList, setShoppingList] =
-    useState<Ingredient[]>([]);
+  const [selectedRecipe, setSelectedRecipe] = useState<string[]>([]);
 
-  const [checkedItems, setCheckedItems] =
-    useState<string[]>([]);
+  const [shoppingList, setShoppingList] = useState<Ingredient[]>([]);
+
+  const [checkedItems, setCheckedItems] = useState<string[]>([]);
 
   const [people, setPeople] = useState(2);
 
-  const [showAddRecipe, setShowAddRecipe] =
-    useState(false);
+  const [showAddRecipe, setShowAddRecipe] = useState(false);
 
-  const [newRecipeName, setNewRecipeName] =
-    useState("");
+  const [newRecipeName, setNewRecipeName] = useState("");
 
   const [newRecipeCategory, setNewRecipeCategory] =
     useState<Category>("その他");
 
-  const [newRecipeUrl, setNewRecipeUrl] =
-    useState("");
+  const [newRecipeUrl, setNewRecipeUrl] = useState("");
 
-  const [newIngredients, setNewIngredients] =
-    useState<Ingredient[]>([]);
+  const [newIngredients, setNewIngredients] = useState<Ingredient[]>([]);
 
-  const [newIngredientName, setNewIngredientName] =
-    useState("");
+  const [newIngredientName, setNewIngredientName] = useState("");
 
-  const [newIngredientAmount, setNewIngredientAmount] =
-    useState("");
+  const [newIngredientAmount, setNewIngredientAmount] = useState("");
 
-  const [newIngredientUnit, setNewIngredientUnit] =
-    useState("個");
+  const [newIngredientUnit, setNewIngredientUnit] = useState("個");
 
-  const [editingRecipe, setEditingRecipe] =
-    useState<Recipe | null>(null);
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
 
-  const [editRecipeName, setEditRecipeName] =
-    useState("");
+  const [editRecipeName, setEditRecipeName] = useState("");
 
   const [editRecipeCategory, setEditRecipeCategory] =
     useState<Category>("その他");
 
-  const [editRecipeUrl, setEditRecipeUrl] =
-    useState("");
+  const [editRecipeUrl, setEditRecipeUrl] = useState("");
 
-  const [editIngredients, setEditIngredients] =
-    useState<Ingredient[]>([]);
+  const [editIngredients, setEditIngredients] = useState<Ingredient[]>([]);
 
-  const [editIngredientName, setEditIngredientName] =
-    useState("");
+  const [editIngredientName, setEditIngredientName] = useState("");
 
-  const [editIngredientAmount, setEditIngredientAmount] =
-    useState("");
+  const [editIngredientAmount, setEditIngredientAmount] = useState("");
 
-  const [editIngredientUnit, setEditIngredientUnit] =
-    useState("個");
+  const [editIngredientUnit, setEditIngredientUnit] = useState("個");
 
-  const [isLoaded, setIsLoaded] =
-    useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const [shoppingListLoaded, setShoppingListLoaded] =
-    useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
 
-  const [copyMessage, setCopyMessage] =
-    useState("");
+  const [showAddShoppingItem, setShowAddShoppingItem] = useState(false);
 
-  const [showAddShoppingItem, setShowAddShoppingItem] =
-    useState(false);
+  const [shoppingItemName, setShoppingItemName] = useState("");
 
-  const [shoppingItemName, setShoppingItemName] =
-    useState("");
+  const [shoppingItemAmount, setShoppingItemAmount] = useState("");
 
-  const [shoppingItemAmount, setShoppingItemAmount] =
-    useState("");
+  const [shoppingItemUnit, setShoppingItemUnit] = useState("個");
 
-  const [shoppingItemUnit, setShoppingItemUnit] =
-    useState("個");
+  const [favorites, setFavorites] = useState<string[]>([]);
 
-  const [favorites, setFavorites] =
-    useState<string[]>([]);
+  const [searchText, setSearchText] = useState("");
 
-  const [searchText, setSearchText] =
-    useState("");
-
-  const [showFavoritesOnly, setShowFavoritesOnly] =
-    useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const [categoryFilter, setCategoryFilter] =
     useState<Category | "すべて">("すべて");
 
   // ========================================
+  // AIレシピ取得
+  // ========================================
+  const [isExtractingRecipe, setIsExtractingRecipe] = useState(false);
+
+  const [extractMessage, setExtractMessage] = useState("");
+
+  // ========================================
+  // ログイン確認
+  // ========================================
+  useEffect(() => {
+    let mounted = true;
+
+    const checkAuth = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!user) {
+        window.location.replace("/login");
+        return;
+      }
+
+      setIsCheckingAuth(false);
+    };
+
+    checkAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // ========================================
   // Supabaseからレシピを読み込み
   // ========================================
   useEffect(() => {
+    if (isCheckingAuth) {
+      return;
+    }
+
     const loadRecipes = async () => {
       try {
-        const { data: recipeData, error: recipeError } =
-          await supabase
-            .from("recipes")
-            .select("*")
-            .order("id", { ascending: true });
+        const { data: recipeData, error: recipeError } = await supabase
+          .from("recipes")
+          .select("*")
+          .order("id", { ascending: true });
 
         if (recipeError) {
           throw recipeError;
         }
 
-        const { data: ingredientData, error: ingredientError } =
-          await supabase
-            .from("recipe_ingredients")
-            .select("*")
-            .order("id", { ascending: true });
+        const {
+          data: ingredientData,
+          error: ingredientError,
+        } = await supabase
+          .from("recipe_ingredients")
+          .select("*")
+          .order("id", { ascending: true });
 
         if (ingredientError) {
           throw ingredientError;
         }
 
-        const loadedRecipes: Recipe[] =
-          (recipeData || []).map((recipe) => ({
-            id: recipe.id,
-            name: recipe.name,
-            category:
-              recipe.category === "主菜" ||
-              recipe.category === "副菜"
-                ? recipe.category
-                : "その他",
-            url: recipe.url || "",
-            ingredients: (ingredientData || [])
-              .filter(
-                (ingredient) =>
-                  Number(ingredient.recipe_id) ===
-                  Number(recipe.id)
-              )
-              .map((ingredient) => ({
-                name: ingredient.name,
-                amount: Number(ingredient.amount),
-                unit: ingredient.unit,
-              })),
-          }));
+        const loadedRecipes: Recipe[] = (recipeData || []).map((recipe) => ({
+          id: recipe.id,
+          name: recipe.name,
+          category:
+            recipe.category === "主菜" || recipe.category === "副菜"
+              ? recipe.category
+              : "その他",
+          url: recipe.url || "",
+          ingredients: (ingredientData || [])
+            .filter(
+              (ingredient) =>
+                Number(ingredient.recipe_id) === Number(recipe.id)
+            )
+            .map((ingredient) => ({
+              name: ingredient.name,
+              amount: Number(ingredient.amount),
+              unit: ingredient.unit,
+            })),
+        }));
 
         console.log("recipeData:", recipeData);
         console.log("ingredientData:", ingredientData);
@@ -187,16 +200,19 @@ export default function Home() {
 
         setRecipes(loadedRecipes);
 
-        const savedFavorites =
-          localStorage.getItem("favorites");
+        try {
+          const savedFavorites = localStorage.getItem("favorites");
 
-        if (savedFavorites) {
-          const parsedFavorites: string[] =
-            JSON.parse(savedFavorites);
+          if (savedFavorites) {
+            const parsedFavorites: string[] =
+              JSON.parse(savedFavorites);
 
-          if (Array.isArray(parsedFavorites)) {
-            setFavorites(parsedFavorites);
+            if (Array.isArray(parsedFavorites)) {
+              setFavorites(parsedFavorites);
+            }
           }
+        } catch (error) {
+          console.error("お気に入りの読み込みに失敗しました", error);
         }
       } catch (error) {
         console.error(
@@ -209,7 +225,7 @@ export default function Home() {
     };
 
     loadRecipes();
-  }, []);
+  }, [isCheckingAuth]);
 
   // ========================================
   // お気に入り保存
@@ -220,15 +236,9 @@ export default function Home() {
     }
 
     try {
-      localStorage.setItem(
-        "favorites",
-        JSON.stringify(favorites)
-      );
+      localStorage.setItem("favorites", JSON.stringify(favorites));
     } catch (error) {
-      console.error(
-        "お気に入りの保存に失敗しました",
-        error
-      );
+      console.error("お気に入りの保存に失敗しました", error);
     }
   }, [favorites, isLoaded]);
 
@@ -236,6 +246,10 @@ export default function Home() {
   // 夫婦共有買い物リスト読み込み
   // ========================================
   useEffect(() => {
+    if (isCheckingAuth) {
+      return;
+    }
+
     const loadShoppingList = async () => {
       try {
         const { data, error } = await supabase
@@ -247,12 +261,11 @@ export default function Home() {
           throw error;
         }
 
-        const loadedList: Ingredient[] =
-          (data || []).map((item) => ({
-            name: item.name,
-            amount: Number(item.amount),
-            unit: item.unit,
-          }));
+        const loadedList: Ingredient[] = (data || []).map((item) => ({
+          name: item.name,
+          amount: Number(item.amount),
+          unit: item.unit,
+        }));
 
         setShoppingList(loadedList);
 
@@ -267,8 +280,6 @@ export default function Home() {
           error
         );
       }
-
-      setShoppingListLoaded(true);
     };
 
     loadShoppingList();
@@ -291,7 +302,7 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isCheckingAuth]);
 
   // ========================================
   // レシピ選択
@@ -299,9 +310,7 @@ export default function Home() {
   const toggleRecipe = (recipeName: string) => {
     setSelectedRecipe((current) =>
       current.includes(recipeName)
-        ? current.filter(
-            (name) => name !== recipeName
-          )
+        ? current.filter((name) => name !== recipeName)
         : [...current, recipeName]
     );
   };
@@ -312,11 +321,147 @@ export default function Home() {
   const toggleFavorite = (recipeName: string) => {
     setFavorites((current) =>
       current.includes(recipeName)
-        ? current.filter(
-            (name) => name !== recipeName
-          )
+        ? current.filter((name) => name !== recipeName)
         : [...current, recipeName]
     );
+  };
+
+  // ========================================
+  // URLからAIでレシピ情報を取得
+  // ========================================
+  const extractRecipeFromUrl = async () => {
+    const url = newRecipeUrl.trim();
+
+    if (!url) {
+      alert("レシピURLを入力してください");
+      return;
+    }
+
+    try {
+      new URL(url);
+    } catch {
+      alert("正しいURLを入力してください");
+      return;
+    }
+
+    setIsExtractingRecipe(true);
+    setExtractMessage("");
+
+    try {
+      const response = await fetch("/api/parse-recipe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url,
+        }),
+      });
+
+      // ========================================
+      // JSONとして読めるか確認
+      // ========================================
+      const contentType = response.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+
+        console.error("APIからJSON以外のレスポンスが返りました:", text);
+
+        throw new Error(
+          "AI APIから正しいデータを取得できませんでした。ページを再読み込みして、もう一度試してください。"
+        );
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "レシピ情報の取得に失敗しました"
+        );
+      }
+
+      if (!data.recipe) {
+        throw new Error(
+          "AIからレシピ情報を取得できませんでした"
+        );
+      }
+
+      const recipe = data.recipe;
+
+      // ========================================
+      // レシピ名
+      // ========================================
+      setNewRecipeName(
+        typeof recipe.name === "string" ? recipe.name : ""
+      );
+
+      // ========================================
+      // カテゴリー
+      // ========================================
+      const category: Category =
+        recipe.category === "主菜" || recipe.category === "副菜"
+          ? recipe.category
+          : "その他";
+
+      setNewRecipeCategory(category);
+
+      // ========================================
+      // 食材
+      // ========================================
+      const extractedIngredients: Ingredient[] =
+        Array.isArray(recipe.ingredients)
+          ? recipe.ingredients
+              .filter(
+                (ingredient: {
+                  name?: unknown;
+                  amount?: unknown;
+                  unit?: unknown;
+                }) =>
+                  typeof ingredient.name === "string" &&
+                  ingredient.name.trim() !== ""
+              )
+              .map(
+                (ingredient: {
+                  name: string;
+                  amount?: unknown;
+                  unit?: unknown;
+                }) => {
+                  const amountNumber = Number(ingredient.amount);
+
+                  return {
+                    name: ingredient.name.trim(),
+                    amount:
+                      Number.isFinite(amountNumber) && amountNumber > 0
+                        ? amountNumber
+                        : 1,
+                    unit:
+                      typeof ingredient.unit === "string"
+                        ? ingredient.unit
+                        : "適量",
+                  };
+                }
+              )
+          : [];
+
+      setNewIngredients(extractedIngredients);
+
+      setExtractMessage(
+        `✅ ${extractedIngredients.length}種類の食材を取得しました。内容を確認してください。`
+      );
+    } catch (error) {
+      console.error("AIレシピ取得エラー:", error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "レシピ情報の取得に失敗しました";
+
+      alert(message);
+      setExtractMessage("");
+    } finally {
+      setIsExtractingRecipe(false);
+    }
   };
 
   // ========================================
@@ -330,16 +475,19 @@ export default function Home() {
       return;
     }
 
+    const amount = Number(newIngredientAmount);
+
+    if (!Number.isFinite(amount)) {
+      return;
+    }
+
     const ingredient: Ingredient = {
       name: newIngredientName.trim(),
-      amount: Number(newIngredientAmount),
+      amount,
       unit: newIngredientUnit,
     };
 
-    setNewIngredients((current) => [
-      ...current,
-      ingredient,
-    ]);
+    setNewIngredients((current) => [...current, ingredient]);
 
     setNewIngredientName("");
     setNewIngredientAmount("");
@@ -352,6 +500,37 @@ export default function Home() {
   const removeIngredient = (index: number) => {
     setNewIngredients((current) =>
       current.filter((_, i) => i !== index)
+    );
+  };
+
+  // ========================================
+  // AI取得食材：数量・単位変更
+  // ========================================
+  const updateNewIngredient = (
+    index: number,
+    field: "name" | "amount" | "unit",
+    value: string
+  ) => {
+    setNewIngredients((current) =>
+      current.map((ingredient, i) => {
+        if (i !== index) {
+          return ingredient;
+        }
+
+        if (field === "amount") {
+          const amount = Number(value);
+
+          return {
+            ...ingredient,
+            amount: Number.isFinite(amount) ? amount : 0,
+          };
+        }
+
+        return {
+          ...ingredient,
+          [field]: value,
+        };
+      })
     );
   };
 
@@ -373,40 +552,38 @@ export default function Home() {
     );
 
     if (alreadyExists) {
-      alert(
-        "同じ名前のレシピがすでにあります"
-      );
+      alert("同じ名前のレシピがすでにあります");
       return;
     }
 
     try {
-      const { data: recipeData, error: recipeError } =
-        await supabase
-          .from("recipes")
-          .insert({
-            name: recipeName,
-            category: newRecipeCategory,
-            url: newRecipeUrl.trim(),
-          })
-          .select()
-          .single();
+      const {
+        data: recipeData,
+        error: recipeError,
+      } = await supabase
+        .from("recipes")
+        .insert({
+          name: recipeName,
+          category: newRecipeCategory,
+          url: newRecipeUrl.trim(),
+        })
+        .select()
+        .single();
 
       if (recipeError) {
         throw recipeError;
       }
 
-      const ingredientsToInsert =
-        newIngredients.map((ingredient) => ({
-          recipe_id: recipeData.id,
-          name: ingredient.name,
-          amount: ingredient.amount,
-          unit: ingredient.unit,
-        }));
+      const ingredientsToInsert = newIngredients.map((ingredient) => ({
+        recipe_id: recipeData.id,
+        name: ingredient.name,
+        amount: ingredient.amount,
+        unit: ingredient.unit,
+      }));
 
-      const { error: ingredientError } =
-        await supabase
-          .from("recipe_ingredients")
-          .insert(ingredientsToInsert);
+      const { error: ingredientError } = await supabase
+        .from("recipe_ingredients")
+        .insert(ingredientsToInsert);
 
       if (ingredientError) {
         throw ingredientError;
@@ -420,10 +597,7 @@ export default function Home() {
         ingredients: newIngredients,
       };
 
-      setRecipes((current) => [
-        ...current,
-        newRecipe,
-      ]);
+      setRecipes((current) => [...current, newRecipe]);
 
       setNewRecipeName("");
       setNewRecipeCategory("その他");
@@ -432,12 +606,10 @@ export default function Home() {
       setNewIngredientName("");
       setNewIngredientAmount("");
       setNewIngredientUnit("個");
+      setExtractMessage("");
       setShowAddRecipe(false);
     } catch (error) {
-      console.error(
-        "レシピの追加に失敗しました",
-        error
-      );
+      console.error("レシピの追加に失敗しました", error);
 
       alert("レシピの追加に失敗しました");
     }
@@ -474,16 +646,19 @@ export default function Home() {
       return;
     }
 
+    const amount = Number(editIngredientAmount);
+
+    if (!Number.isFinite(amount)) {
+      return;
+    }
+
     const ingredient: Ingredient = {
       name: editIngredientName.trim(),
-      amount: Number(editIngredientAmount),
+      amount,
       unit: editIngredientUnit,
     };
 
-    setEditIngredients((current) => [
-      ...current,
-      ingredient,
-    ]);
+    setEditIngredients((current) => [...current, ingredient]);
 
     setEditIngredientName("");
     setEditIngredientAmount("");
@@ -520,9 +695,7 @@ export default function Home() {
     );
 
     if (duplicateName) {
-      alert(
-        "同じ名前のレシピがすでにあります"
-      );
+      alert("同じ名前のレシピがすでにあります");
       return;
     }
 
@@ -531,42 +704,38 @@ export default function Home() {
     }
 
     try {
-      const { error: recipeError } =
-        await supabase
-          .from("recipes")
-          .update({
-            name: newName,
-            category: editRecipeCategory,
-            url: editRecipeUrl.trim(),
-          })
-          .eq("id", editingRecipe.id);
+      const { error: recipeError } = await supabase
+        .from("recipes")
+        .update({
+          name: newName,
+          category: editRecipeCategory,
+          url: editRecipeUrl.trim(),
+        })
+        .eq("id", editingRecipe.id);
 
       if (recipeError) {
         throw recipeError;
       }
 
-      const { error: deleteError } =
-        await supabase
-          .from("recipe_ingredients")
-          .delete()
-          .eq("recipe_id", editingRecipe.id);
+      const { error: deleteError } = await supabase
+        .from("recipe_ingredients")
+        .delete()
+        .eq("recipe_id", editingRecipe.id);
 
       if (deleteError) {
         throw deleteError;
       }
 
-      const ingredientsToInsert =
-        editIngredients.map((ingredient) => ({
-          recipe_id: editingRecipe.id,
-          name: ingredient.name,
-          amount: ingredient.amount,
-          unit: ingredient.unit,
-        }));
+      const ingredientsToInsert = editIngredients.map((ingredient) => ({
+        recipe_id: editingRecipe.id,
+        name: ingredient.name,
+        amount: ingredient.amount,
+        unit: ingredient.unit,
+      }));
 
-      const { error: ingredientError } =
-        await supabase
-          .from("recipe_ingredients")
-          .insert(ingredientsToInsert);
+      const { error: ingredientError } = await supabase
+        .from("recipe_ingredients")
+        .insert(ingredientsToInsert);
 
       if (ingredientError) {
         throw ingredientError;
@@ -590,26 +759,19 @@ export default function Home() {
 
       setSelectedRecipe((current) =>
         current.map((name) =>
-          name === editingRecipe.name
-            ? newName
-            : name
+          name === editingRecipe.name ? newName : name
         )
       );
 
       setFavorites((current) =>
         current.map((name) =>
-          name === editingRecipe.name
-            ? newName
-            : name
+          name === editingRecipe.name ? newName : name
         )
       );
 
       setEditingRecipe(null);
     } catch (error) {
-      console.error(
-        "レシピの編集に失敗しました",
-        error
-      );
+      console.error("レシピの編集に失敗しました", error);
 
       alert("レシピの編集に失敗しました");
     }
@@ -632,6 +794,15 @@ export default function Home() {
     }
 
     try {
+      const { error: ingredientDeleteError } = await supabase
+        .from("recipe_ingredients")
+        .delete()
+        .eq("recipe_id", recipe.id);
+
+      if (ingredientDeleteError) {
+        throw ingredientDeleteError;
+      }
+
       const { error } = await supabase
         .from("recipes")
         .delete()
@@ -642,27 +813,18 @@ export default function Home() {
       }
 
       setRecipes((current) =>
-        current.filter(
-          (item) => item.id !== recipe.id
-        )
+        current.filter((item) => item.id !== recipe.id)
       );
 
       setSelectedRecipe((current) =>
-        current.filter(
-          (name) => name !== recipe.name
-        )
+        current.filter((name) => name !== recipe.name)
       );
 
       setFavorites((current) =>
-        current.filter(
-          (name) => name !== recipe.name
-        )
+        current.filter((name) => name !== recipe.name)
       );
     } catch (error) {
-      console.error(
-        "レシピの削除に失敗しました",
-        error
-      );
+      console.error("レシピの削除に失敗しました", error);
 
       alert("レシピの削除に失敗しました");
     }
@@ -672,10 +834,7 @@ export default function Home() {
   // 買い物リスト作成
   // ========================================
   const createShoppingList = async () => {
-    const ingredientMap: Record<
-      string,
-      Ingredient
-    > = {};
+    const ingredientMap: Record<string, Ingredient> = {};
 
     selectedRecipe.forEach((recipeName) => {
       const recipe = recipes.find(
@@ -683,15 +842,13 @@ export default function Home() {
       );
 
       recipe?.ingredients.forEach((ingredient) => {
-        const key =
-          `${ingredient.name}-${ingredient.unit}`;
+        const key = `${ingredient.name}-${ingredient.unit}`;
 
         const adjustedAmount =
           ingredient.amount * (people / 2);
 
         if (ingredientMap[key]) {
-          ingredientMap[key].amount +=
-            adjustedAmount;
+          ingredientMap[key].amount += adjustedAmount;
         } else {
           ingredientMap[key] = {
             ...ingredient,
@@ -701,28 +858,29 @@ export default function Home() {
       });
     });
 
-    const newList =
-      Object.values(ingredientMap);
+    const newList = Object.values(ingredientMap);
 
     try {
-      await supabase
+      const { error: deleteError } = await supabase
         .from("shopping_items")
         .delete()
         .neq("id", 0);
 
-      if (newList.length > 0) {
-        const itemsToInsert =
-          newList.map((ingredient) => ({
-            name: ingredient.name,
-            amount: ingredient.amount,
-            unit: ingredient.unit,
-            checked: false,
-          }));
+      if (deleteError) {
+        throw deleteError;
+      }
 
-        const { error } =
-          await supabase
-            .from("shopping_items")
-            .insert(itemsToInsert);
+      if (newList.length > 0) {
+        const itemsToInsert = newList.map((ingredient) => ({
+          name: ingredient.name,
+          amount: ingredient.amount,
+          unit: ingredient.unit,
+          checked: false,
+        }));
+
+        const { error } = await supabase
+          .from("shopping_items")
+          .insert(itemsToInsert);
 
         if (error) {
           throw error;
@@ -738,9 +896,7 @@ export default function Home() {
         error
       );
 
-      alert(
-        "共有買い物リストの作成に失敗しました"
-      );
+      alert("共有買い物リストの作成に失敗しました");
     }
   };
 
@@ -759,63 +915,67 @@ export default function Home() {
     const amount = Number(shoppingItemAmount);
     const unit = shoppingItemUnit;
 
+    if (!Number.isFinite(amount)) {
+      return;
+    }
+
     try {
-      const existing =
-        shoppingList.find(
-          (ingredient) =>
-            ingredient.name === name &&
-            ingredient.unit === unit
-        );
+      const existing = shoppingList.find(
+        (ingredient) =>
+          ingredient.name === name &&
+          ingredient.unit === unit
+      );
 
       if (existing) {
-        const { data, error } =
-          await supabase
-            .from("shopping_items")
-            .select("*")
-            .eq("name", name)
-            .eq("unit", unit)
-            .limit(1)
-            .single();
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("shopping_items")
+          .select("*")
+          .eq("name", name)
+          .eq("unit", unit)
+          .limit(1)
+          .single();
 
         if (error) {
           throw error;
         }
 
-        const { error: updateError } =
-          await supabase
-            .from("shopping_items")
-            .update({
-              amount:
-                Number(data.amount) + amount,
-            })
-            .eq("id", data.id);
+        const { error: updateError } = await supabase
+          .from("shopping_items")
+          .update({
+            amount: Number(data.amount) + amount,
+          })
+          .eq("id", data.id);
 
         if (updateError) {
           throw updateError;
         }
       } else {
-        const { error } =
-          await supabase
-            .from("shopping_items")
-            .insert({
-              name,
-              amount,
-              unit,
-              checked: false,
-            });
+        const { error } = await supabase
+          .from("shopping_items")
+          .insert({
+            name,
+            amount,
+            unit,
+            checked: false,
+          });
 
         if (error) {
           throw error;
         }
       }
 
-      const { data, error } =
-        await supabase
-          .from("shopping_items")
-          .select("*")
-          .order("id", {
-            ascending: true,
-          });
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("shopping_items")
+        .select("*")
+        .order("id", {
+          ascending: true,
+        });
 
       if (error) {
         throw error;
@@ -840,9 +1000,7 @@ export default function Home() {
         error
       );
 
-      alert(
-        "買い物リストへの追加に失敗しました"
-      );
+      alert("買い物リストへの追加に失敗しました");
     }
   };
 
@@ -862,12 +1020,11 @@ export default function Home() {
     }
 
     try {
-      const { error } =
-        await supabase
-          .from("shopping_items")
-          .delete()
-          .eq("name", ingredientName)
-          .eq("unit", ingredientUnit);
+      const { error } = await supabase
+        .from("shopping_items")
+        .delete()
+        .eq("name", ingredientName)
+        .eq("unit", ingredientUnit);
 
       if (error) {
         throw error;
@@ -877,18 +1034,15 @@ export default function Home() {
         current.filter(
           (ingredient) =>
             !(
-              ingredient.name ===
-                ingredientName &&
-              ingredient.unit ===
-                ingredientUnit
+              ingredient.name === ingredientName &&
+              ingredient.unit === ingredientUnit
             )
         )
       );
 
       setCheckedItems((current) =>
         current.filter(
-          (item) =>
-            item !== ingredientName
+          (item) => item !== ingredientName
         )
       );
 
@@ -899,31 +1053,24 @@ export default function Home() {
         error
       );
 
-      alert(
-        "買い物リストの削除に失敗しました"
-      );
+      alert("買い物リストの削除に失敗しました");
     }
   };
 
   // ========================================
   // チェック切り替え
   // ========================================
-  const toggleChecked = async (
-    ingredientName: string
-  ) => {
+  const toggleChecked = async (ingredientName: string) => {
     const newChecked =
-      !checkedItems.includes(
-        ingredientName
-      );
+      !checkedItems.includes(ingredientName);
 
     try {
-      const { error } =
-        await supabase
-          .from("shopping_items")
-          .update({
-            checked: newChecked,
-          })
-          .eq("name", ingredientName);
+      const { error } = await supabase
+        .from("shopping_items")
+        .update({
+          checked: newChecked,
+        })
+        .eq("name", ingredientName);
 
       if (error) {
         throw error;
@@ -933,8 +1080,7 @@ export default function Home() {
         newChecked
           ? [...current, ingredientName]
           : current.filter(
-              (item) =>
-                item !== ingredientName
+              (item) => item !== ingredientName
             )
       );
     } catch (error) {
@@ -950,13 +1096,12 @@ export default function Home() {
   // ========================================
   const checkAll = async () => {
     try {
-      const { error } =
-        await supabase
-          .from("shopping_items")
-          .update({
-            checked: true,
-          })
-          .neq("id", 0);
+      const { error } = await supabase
+        .from("shopping_items")
+        .update({
+          checked: true,
+        })
+        .neq("id", 0);
 
       if (error) {
         throw error;
@@ -964,8 +1109,7 @@ export default function Home() {
 
       setCheckedItems(
         shoppingList.map(
-          (ingredient) =>
-            ingredient.name
+          (ingredient) => ingredient.name
         )
       );
     } catch (error) {
@@ -981,13 +1125,12 @@ export default function Home() {
   // ========================================
   const uncheckAll = async () => {
     try {
-      const { error } =
-        await supabase
-          .from("shopping_items")
-          .update({
-            checked: false,
-          })
-          .neq("id", 0);
+      const { error } = await supabase
+        .from("shopping_items")
+        .update({
+          checked: false,
+        })
+        .neq("id", 0);
 
       if (error) {
         throw error;
@@ -1010,16 +1153,13 @@ export default function Home() {
       `🛒 買い物リスト（${people}人分）`,
       "",
       ...shoppingList.map((ingredient) => {
-        const checked =
-          checkedItems.includes(
-            ingredient.name
-          );
+        const checked = checkedItems.includes(
+          ingredient.name
+        );
 
         return `${checked ? "☑" : "☐"} ${
           ingredient.name
-        } ${ingredient.amount}${
-          ingredient.unit
-        }`;
+        } ${ingredient.amount}${ingredient.unit}`;
       }),
     ].join("\n");
 
@@ -1034,14 +1174,9 @@ export default function Home() {
         setCopyMessage("");
       }, 2000);
     } catch (error) {
-      console.error(
-        "コピーに失敗しました",
-        error
-      );
+      console.error("コピーに失敗しました", error);
 
-      setCopyMessage(
-        "コピーに失敗しました"
-      );
+      setCopyMessage("コピーに失敗しました");
     }
   };
 
@@ -1050,17 +1185,14 @@ export default function Home() {
   // ========================================
   const shareRecipesToLine = () => {
     if (selectedRecipe.length === 0) {
-      alert(
-        "共有するレシピを選択してください"
-      );
+      alert("共有するレシピを選択してください");
       return;
     }
 
     const text = selectedRecipe
       .map((recipeName) => {
         const recipe = recipes.find(
-          (item) =>
-            item.name === recipeName
+          (item) => item.name === recipeName
         );
 
         if (!recipe) {
@@ -1101,11 +1233,10 @@ export default function Home() {
     }
 
     try {
-      const { error } =
-        await supabase
-          .from("shopping_items")
-          .delete()
-          .neq("id", 0);
+      const { error } = await supabase
+        .from("shopping_items")
+        .delete()
+        .neq("id", 0);
 
       if (error) {
         throw error;
@@ -1120,48 +1251,46 @@ export default function Home() {
         error
       );
 
-      alert(
-        "買い物リストの削除に失敗しました"
-      );
+      alert("買い物リストの削除に失敗しました");
     }
   };
 
   // ========================================
   // 検索・フィルター
   // ========================================
-  const filteredRecipes = recipes.filter(
-    (recipe) => {
-      const matchesSearch =
-        recipe.name
+  const filteredRecipes = recipes.filter((recipe) => {
+    const matchesSearch =
+      recipe.name
+        .toLowerCase()
+        .includes(searchText.toLowerCase()) ||
+      recipe.ingredients.some((ingredient) =>
+        ingredient.name
           .toLowerCase()
-          .includes(
-            searchText.toLowerCase()
-          ) ||
-        recipe.ingredients.some(
-          (ingredient) =>
-            ingredient.name
-              .toLowerCase()
-              .includes(
-                searchText.toLowerCase()
-              )
-        );
-
-      const matchesFavorite =
-        !showFavoritesOnly ||
-        favorites.includes(recipe.name);
-
-      const matchesCategory =
-        categoryFilter === "すべて" ||
-        recipe.category ===
-          categoryFilter;
-
-      return (
-        matchesSearch &&
-        matchesFavorite &&
-        matchesCategory
+          .includes(searchText.toLowerCase())
       );
-    }
-  );
+
+    const matchesFavorite =
+      !showFavoritesOnly ||
+      favorites.includes(recipe.name);
+
+    const matchesCategory =
+      categoryFilter === "すべて" ||
+      recipe.category === categoryFilter;
+
+    return (
+      matchesSearch &&
+      matchesFavorite &&
+      matchesCategory
+    );
+  });
+
+  if (isCheckingAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <p className="text-sm text-gray-500">読み込み中...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
@@ -1193,38 +1322,37 @@ export default function Home() {
           </h2>
 
           <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
-            {[1, 2, 3, 4, 5, 6].map(
-              (number) => (
-                <button
-                  key={number}
-                  onClick={() =>
-                    setPeople(number)
-                  }
-                  className={`min-h-12 rounded-xl px-4 py-3 font-bold transition ${
-                    people === number
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {number}人
-                </button>
-              )
-            )}
+            {[1, 2, 3, 4, 5, 6].map((number) => (
+              <button
+                key={number}
+                onClick={() => setPeople(number)}
+                className={`min-h-12 rounded-xl px-4 py-3 font-bold transition ${
+                  people === number
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {number}人
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* レシピ追加 */}
+        {/* レシピ追加ボタン */}
         <button
-          onClick={() =>
-            setShowAddRecipe(
-              !showAddRecipe
-            )
-          }
+          onClick={() => {
+            setShowAddRecipe(!showAddRecipe);
+
+            if (showAddRecipe) {
+              setExtractMessage("");
+            }
+          }}
           className="mt-5 w-full rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50 p-4 font-bold text-blue-600 transition hover:bg-blue-100"
         >
           ＋ レシピを追加する
         </button>
 
+        {/* レシピ追加フォーム */}
         {showAddRecipe && (
           <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm sm:p-6">
 
@@ -1232,8 +1360,48 @@ export default function Home() {
               新しいレシピを追加
             </h2>
 
-            {/* レシピ名 */}
+            {/* URL */}
             <div className="mt-4">
+              <label className="text-sm font-bold">
+                レシピURL
+              </label>
+
+              <input
+                type="url"
+                value={newRecipeUrl}
+                onChange={(e) =>
+                  setNewRecipeUrl(e.target.value)
+                }
+                placeholder="https://..."
+                className="mt-1 min-h-12 w-full rounded-xl border p-3 outline-none focus:border-blue-500"
+              />
+
+              <button
+                onClick={extractRecipeFromUrl}
+                disabled={
+                  isExtractingRecipe ||
+                  newRecipeUrl.trim() === ""
+                }
+                className="mt-3 min-h-12 w-full rounded-xl bg-purple-600 p-3 font-bold text-white transition hover:bg-purple-700 disabled:bg-gray-300"
+              >
+                {isExtractingRecipe
+                  ? "🔄 AIがレシピを解析中..."
+                  : "🔍 URLからレシピ情報を取得"}
+              </button>
+
+              {extractMessage && (
+                <p className="mt-3 rounded-xl bg-green-50 p-3 text-sm font-bold text-green-700">
+                  {extractMessage}
+                </p>
+              )}
+
+              <p className="mt-2 text-xs text-gray-500">
+                URLを貼ると、AIがレシピ名・カテゴリー・食材を自動で取得します。
+              </p>
+            </div>
+
+            {/* レシピ名 */}
+            <div className="mt-5">
               <label className="text-sm font-bold">
                 レシピ名
               </label>
@@ -1241,9 +1409,7 @@ export default function Home() {
               <input
                 value={newRecipeName}
                 onChange={(e) =>
-                  setNewRecipeName(
-                    e.target.value
-                  )
+                  setNewRecipeName(e.target.value)
                 }
                 placeholder="例：ハンバーグ"
                 className="mt-1 min-h-12 w-full rounded-xl border p-3 outline-none focus:border-blue-500"
@@ -1265,47 +1431,117 @@ export default function Home() {
                 }
                 className="mt-1 min-h-12 w-full rounded-xl border p-3"
               >
-                {categories.map(
-                  (category) => (
-                    <option
-                      key={category}
-                      value={category}
-                    >
-                      {category}
-                    </option>
-                  )
-                )}
+                {categories.map((category) => (
+                  <option
+                    key={category}
+                    value={category}
+                  >
+                    {category}
+                  </option>
+                ))}
               </select>
-            </div>
-
-            {/* URL */}
-            <div className="mt-4">
-              <label className="text-sm font-bold">
-                レシピURL
-              </label>
-
-              <input
-                type="url"
-                value={newRecipeUrl}
-                onChange={(e) =>
-                  setNewRecipeUrl(
-                    e.target.value
-                  )
-                }
-                placeholder="https://..."
-                className="mt-1 min-h-12 w-full rounded-xl border p-3"
-              />
             </div>
 
             {/* 食材 */}
             <div className="mt-6 border-t pt-5">
-
               <h3 className="font-bold">
-                食材を追加
+                🥕 食材
+              </h3>
+
+              {newIngredients.length === 0 ? (
+                <p className="mt-3 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
+                  URLから取得するか、下から手動で追加してください。
+                </p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {newIngredients.map(
+                    (ingredient, index) => (
+                      <div
+                        key={index}
+                        className="rounded-xl bg-gray-50 p-3"
+                      >
+                        <div className="grid gap-2 sm:grid-cols-[1fr_120px_120px_auto]">
+
+                          <input
+                            value={ingredient.name}
+                            onChange={(e) =>
+                              updateNewIngredient(
+                                index,
+                                "name",
+                                e.target.value
+                              )
+                            }
+                            className="min-h-11 rounded-lg border bg-white p-2"
+                          />
+
+                          <input
+                            type="number"
+                            value={ingredient.amount}
+                            onChange={(e) =>
+                              updateNewIngredient(
+                                index,
+                                "amount",
+                                e.target.value
+                              )
+                            }
+                            className="min-h-11 rounded-lg border bg-white p-2"
+                          />
+
+                          <select
+                            value={ingredient.unit}
+                            onChange={(e) =>
+                              updateNewIngredient(
+                                index,
+                                "unit",
+                                e.target.value
+                              )
+                            }
+                            className="min-h-11 rounded-lg border bg-white p-2"
+                          >
+                            {units.map((unit) => (
+                              <option
+                                key={unit}
+                                value={unit}
+                              >
+                                {unit}
+                              </option>
+                            ))}
+
+                            {!units.includes(
+                              ingredient.unit
+                            ) && (
+                              <option
+                                value={ingredient.unit}
+                              >
+                                {ingredient.unit}
+                              </option>
+                            )}
+                          </select>
+
+                          <button
+                            onClick={() =>
+                              removeIngredient(index)
+                            }
+                            className="min-h-11 rounded-lg px-3 font-bold text-red-500 hover:bg-red-50"
+                          >
+                            削除
+                          </button>
+
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 手動食材追加 */}
+            <div className="mt-5">
+              <h3 className="font-bold">
+                ＋ 手動で食材を追加
               </h3>
 
               <div className="mt-3 grid gap-3 sm:grid-cols-3">
-
                 <input
                   value={newIngredientName}
                   onChange={(e) =>
@@ -1347,7 +1583,6 @@ export default function Home() {
                     </option>
                   ))}
                 </select>
-
               </div>
 
               <button
@@ -1358,45 +1593,7 @@ export default function Home() {
               </button>
             </div>
 
-            {newIngredients.length > 0 && (
-              <div className="mt-5">
-
-                <h3 className="font-bold">
-                  追加した食材
-                </h3>
-
-                <ul className="mt-3 space-y-2">
-
-                  {newIngredients.map(
-                    (ingredient, index) => (
-                      <li
-                        key={index}
-                        className="flex items-center justify-between rounded-xl bg-gray-50 p-3"
-                      >
-                        <span>
-                          {ingredient.name}{" "}
-                          {ingredient.amount}
-                          {ingredient.unit}
-                        </span>
-
-                        <button
-                          onClick={() =>
-                            removeIngredient(
-                              index
-                            )
-                          }
-                          className="rounded-lg px-3 py-2 text-sm font-bold text-red-500"
-                        >
-                          削除
-                        </button>
-                      </li>
-                    )
-                  )}
-
-                </ul>
-              </div>
-            )}
-
+            {/* 保存 */}
             <button
               onClick={addRecipe}
               disabled={
@@ -1413,9 +1610,7 @@ export default function Home() {
 
         {/* 検索 */}
         <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm sm:p-6">
-
           <div className="flex items-center justify-between gap-3">
-
             <h2 className="text-lg font-bold">
               🍳 レシピを探す
             </h2>
@@ -1423,10 +1618,9 @@ export default function Home() {
             <span className="text-sm text-gray-500">
               {filteredRecipes.length}件
             </span>
-
           </div>
 
-          <div className="mt-4 relative">
+          <div className="relative mt-4">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
               🔍
             </span>
@@ -1434,9 +1628,7 @@ export default function Home() {
             <input
               value={searchText}
               onChange={(e) =>
-                setSearchText(
-                  e.target.value
-                )
+                setSearchText(e.target.value)
               }
               placeholder="レシピ名・食材名で検索"
               className="min-h-12 w-full rounded-xl border bg-gray-50 py-3 pl-11 pr-4 outline-none focus:border-blue-500 focus:bg-white"
@@ -1445,31 +1637,23 @@ export default function Home() {
 
           {/* カテゴリーフィルター */}
           <div className="mt-4 flex flex-wrap gap-2">
-
-            {(
-              [
-                "すべて",
-                ...categories,
-              ] as const
-            ).map((category) => (
-              <button
-                key={category}
-                onClick={() =>
-                  setCategoryFilter(
-                    category
-                  )
-                }
-                className={`rounded-xl px-4 py-2 font-bold ${
-                  categoryFilter ===
-                  category
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                {category}
-              </button>
-            ))}
-
+            {(["すべて", ...categories] as const).map(
+              (category) => (
+                <button
+                  key={category}
+                  onClick={() =>
+                    setCategoryFilter(category)
+                  }
+                  className={`rounded-xl px-4 py-2 font-bold ${
+                    categoryFilter === category
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {category}
+                </button>
+              )
+            )}
           </div>
 
           <button
@@ -1488,12 +1672,10 @@ export default function Home() {
               ? "★ お気に入りのみ表示中"
               : "☆ お気に入りだけ見る"}
           </button>
-
         </div>
 
         {/* レシピ一覧 */}
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-
           {filteredRecipes.length === 0 ? (
             <div className="col-span-full rounded-2xl bg-white p-8 text-center shadow-sm">
               <p className="text-gray-500">
@@ -1502,43 +1684,32 @@ export default function Home() {
             </div>
           ) : (
             filteredRecipes.map((recipe) => {
-
               const isSelected =
                 selectedRecipe.includes(
                   recipe.name
                 );
 
               const isFavorite =
-                favorites.includes(
-                  recipe.name
-                );
+                favorites.includes(recipe.name);
 
               return (
                 <div
-                  key={
-                    recipe.id ??
-                    recipe.name
-                  }
+                  key={recipe.id ?? recipe.name}
                   className={`rounded-2xl border p-5 shadow-sm transition ${
                     isSelected
                       ? "border-blue-500 bg-blue-50"
                       : "border-gray-200 bg-white"
                   }`}
                 >
-
                   <div className="flex items-start gap-2">
 
                     <button
                       onClick={() =>
-                        toggleRecipe(
-                          recipe.name
-                        )
+                        toggleRecipe(recipe.name)
                       }
                       className="min-w-0 flex-1 text-left"
                     >
-
                       <div className="flex flex-wrap items-center gap-2">
-
                         <h2 className="text-xl font-bold">
                           {recipe.name}
                         </h2>
@@ -1552,16 +1723,11 @@ export default function Home() {
                             選択中
                           </span>
                         )}
-
                       </div>
 
                       <div className="mt-3 space-y-1 text-sm text-gray-500">
-
                         {recipe.ingredients.map(
-                          (
-                            ingredient,
-                            index
-                          ) => (
+                          (ingredient, index) => (
                             <p
                               key={`${ingredient.name}-${ingredient.unit}-${index}`}
                             >
@@ -1571,16 +1737,12 @@ export default function Home() {
                             </p>
                           )
                         )}
-
                       </div>
-
                     </button>
 
                     <button
                       onClick={() =>
-                        toggleFavorite(
-                          recipe.name
-                        )
+                        toggleFavorite(recipe.name)
                       }
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-2xl hover:bg-yellow-50"
                       aria-label={
@@ -1589,11 +1751,8 @@ export default function Home() {
                           : "お気に入りに追加"
                       }
                     >
-                      {isFavorite
-                        ? "★"
-                        : "☆"}
+                      {isFavorite ? "★" : "☆"}
                     </button>
-
                   </div>
 
                   {/* レシピURL */}
@@ -1612,12 +1771,9 @@ export default function Home() {
                   )}
 
                   <div className="mt-4 flex gap-2 border-t pt-3">
-
                     <button
                       onClick={() =>
-                        startEditRecipe(
-                          recipe
-                        )
+                        startEditRecipe(recipe)
                       }
                       className="min-h-11 flex-1 rounded-xl bg-gray-100 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200"
                     >
@@ -1626,22 +1782,17 @@ export default function Home() {
 
                     <button
                       onClick={() =>
-                        deleteRecipe(
-                          recipe
-                        )
+                        deleteRecipe(recipe)
                       }
                       className="min-h-11 flex-1 rounded-xl bg-red-50 py-2 text-sm font-bold text-red-600 hover:bg-red-100"
                     >
                       🗑️ 削除
                     </button>
-
                   </div>
-
                 </div>
               );
             })
           )}
-
         </div>
 
         {/* 編集フォーム */}
@@ -1649,7 +1800,6 @@ export default function Home() {
           <div className="mt-8 rounded-2xl border-2 border-blue-300 bg-blue-50 p-5 sm:p-6">
 
             <div className="flex items-center justify-between">
-
               <h2 className="text-lg font-bold">
                 ✏️ レシピを編集
               </h2>
@@ -1662,12 +1812,9 @@ export default function Home() {
               >
                 ✕ 閉じる
               </button>
-
             </div>
 
-            {/* レシピ名 */}
             <div className="mt-4">
-
               <label className="text-sm font-bold">
                 レシピ名
               </label>
@@ -1681,12 +1828,9 @@ export default function Home() {
                 }
                 className="mt-1 min-h-12 w-full rounded-xl border p-3"
               />
-
             </div>
 
-            {/* カテゴリー */}
             <div className="mt-4">
-
               <label className="text-sm font-bold">
                 カテゴリー
               </label>
@@ -1700,23 +1844,18 @@ export default function Home() {
                 }
                 className="mt-1 min-h-12 w-full rounded-xl border p-3"
               >
-                {categories.map(
-                  (category) => (
-                    <option
-                      key={category}
-                      value={category}
-                    >
-                      {category}
-                    </option>
-                  )
-                )}
+                {categories.map((category) => (
+                  <option
+                    key={category}
+                    value={category}
+                  >
+                    {category}
+                  </option>
+                ))}
               </select>
-
             </div>
 
-            {/* URL */}
             <div className="mt-4">
-
               <label className="text-sm font-bold">
                 レシピURL
               </label>
@@ -1732,28 +1871,20 @@ export default function Home() {
                 placeholder="https://..."
                 className="mt-1 min-h-12 w-full rounded-xl border p-3"
               />
-
             </div>
 
-            {/* 食材 */}
             <div className="mt-6">
-
               <h3 className="font-bold">
                 食材
               </h3>
 
               <ul className="mt-3 space-y-2">
-
                 {editIngredients.map(
-                  (
-                    ingredient,
-                    index
-                  ) => (
+                  (ingredient, index) => (
                     <li
                       key={index}
                       className="flex items-center justify-between rounded-xl bg-white p-3"
                     >
-
                       <span>
                         {ingredient.name}{" "}
                         {ingredient.amount}
@@ -1762,27 +1893,20 @@ export default function Home() {
 
                       <button
                         onClick={() =>
-                          removeEditIngredient(
-                            index
-                          )
+                          removeEditIngredient(index)
                         }
                         className="rounded-lg px-3 py-2 text-sm font-bold text-red-500"
                       >
                         削除
                       </button>
-
                     </li>
                   )
                 )}
-
               </ul>
-
             </div>
 
             <div className="mt-5">
-
               <div className="grid gap-3 sm:grid-cols-3">
-
                 <input
                   value={editIngredientName}
                   onChange={(e) =>
@@ -1824,7 +1948,6 @@ export default function Home() {
                     </option>
                   ))}
                 </select>
-
               </div>
 
               <button
@@ -1833,7 +1956,6 @@ export default function Home() {
               >
                 ＋ 食材を追加
               </button>
-
             </div>
 
             <button
@@ -1846,7 +1968,6 @@ export default function Home() {
             >
               変更を保存する
             </button>
-
           </div>
         )}
 
@@ -1854,7 +1975,6 @@ export default function Home() {
         <div className="mt-8 rounded-2xl bg-white p-5 shadow-sm sm:p-6">
 
           <div className="flex items-center justify-between gap-3">
-
             <h2 className="text-lg font-bold">
               選択したレシピ
             </h2>
@@ -1867,7 +1987,6 @@ export default function Home() {
                 LINEで共有
               </button>
             )}
-
           </div>
 
           {selectedRecipe.length === 0 ? (
@@ -1876,49 +1995,38 @@ export default function Home() {
             </p>
           ) : (
             <ul className="mt-3 space-y-2">
+              {selectedRecipe.map((recipeName) => {
+                const recipe = recipes.find(
+                  (item) => item.name === recipeName
+                );
 
-              {selectedRecipe.map(
-                (recipeName) => {
-                  const recipe =
-                    recipes.find(
-                      (item) =>
-                        item.name ===
-                        recipeName
-                    );
+                return (
+                  <li
+                    key={recipeName}
+                    className="rounded-xl bg-blue-50 p-3 font-medium text-blue-700"
+                  >
+                    <div>
+                      ✓ {recipeName}
+                    </div>
 
-                  return (
-                    <li
-                      key={recipeName}
-                      className="rounded-xl bg-blue-50 p-3 font-medium text-blue-700"
-                    >
-                      <div>
-                        ✓ {recipeName}
+                    {recipe?.url && (
+                      <div className="mt-1 text-sm font-normal text-blue-500">
+                        🔗 URLあり
                       </div>
-
-                      {recipe?.url && (
-                        <div className="mt-1 text-sm font-normal text-blue-500">
-                          🔗 URLあり
-                        </div>
-                      )}
-                    </li>
-                  );
-                }
-              )}
-
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
 
           <button
             onClick={createShoppingList}
-            disabled={
-              selectedRecipe.length === 0
-            }
+            disabled={selectedRecipe.length === 0}
             className="mt-5 min-h-12 w-full rounded-xl bg-blue-600 px-5 py-3 font-bold text-white shadow-sm disabled:bg-gray-300"
           >
-            {people}
-            人分の買い物リストを作る
+            {people}人分の買い物リストを作る
           </button>
-
         </div>
 
         {/* 買い物リスト */}
@@ -1926,9 +2034,7 @@ export default function Home() {
           <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm sm:p-6">
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
               <div>
-
                 <h2 className="text-lg font-bold">
                   🛒 夫婦共有買い物リスト
                 </h2>
@@ -1937,9 +2043,7 @@ export default function Home() {
                   {people}人分・
                   {shoppingList.length}種類
                 </p>
-
               </div>
-
             </div>
 
             {/* 手動追加 */}
@@ -1962,7 +2066,6 @@ export default function Home() {
                 </h3>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
-
                   <input
                     value={shoppingItemName}
                     onChange={(e) =>
@@ -2004,7 +2107,6 @@ export default function Home() {
                       </option>
                     ))}
                   </select>
-
                 </div>
 
                 <button
@@ -2017,7 +2119,6 @@ export default function Home() {
                 >
                   追加する
                 </button>
-
               </div>
             )}
 
@@ -2051,7 +2152,6 @@ export default function Home() {
               >
                 🗑️ 買い物完了
               </button>
-
             </div>
 
             {copyMessage && (
@@ -2062,88 +2162,75 @@ export default function Home() {
 
             {/* リスト */}
             <ul className="mt-4 space-y-2">
+              {shoppingList.map((ingredient) => {
+                const isChecked =
+                  checkedItems.includes(
+                    ingredient.name
+                  );
 
-              {shoppingList.map(
-                (ingredient) => {
-
-                  const isChecked =
-                    checkedItems.includes(
-                      ingredient.name
-                    );
-
-                  return (
-                    <li
-                      key={`${ingredient.name}-${ingredient.unit}`}
-                      className="flex items-center gap-2"
+                return (
+                  <li
+                    key={`${ingredient.name}-${ingredient.unit}`}
+                    className="flex items-center gap-2"
+                  >
+                    <button
+                      onClick={() =>
+                        toggleChecked(
+                          ingredient.name
+                        )
+                      }
+                      className="flex min-h-14 min-w-0 flex-1 items-center justify-between rounded-xl bg-gray-50 p-4 text-left hover:bg-gray-100"
                     >
-
-                      <button
-                        onClick={() =>
-                          toggleChecked(
-                            ingredient.name
-                          )
-                        }
-                        className="flex min-h-14 min-w-0 flex-1 items-center justify-between rounded-xl bg-gray-50 p-4 text-left hover:bg-gray-100"
-                      >
-
-                        <div className="flex min-w-0 items-center gap-3">
-
-                          <span className="text-2xl">
-                            {isChecked
-                              ? "☑"
-                              : "☐"}
-                          </span>
-
-                          <span
-                            className={`truncate ${
-                              isChecked
-                                ? "text-gray-400 line-through"
-                                : "font-medium"
-                            }`}
-                          >
-                            {ingredient.name}
-                          </span>
-
-                        </div>
-
-                        <span
-                          className={`ml-3 whitespace-nowrap ${
-                            isChecked
-                              ? "text-gray-400 line-through"
-                              : "font-bold"
-                          }`}
-                        >
-                          {ingredient.amount}
-                          {ingredient.unit}
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="text-2xl">
+                          {isChecked
+                            ? "☑"
+                            : "☐"}
                         </span>
 
-                      </button>
+                        <span
+                          className={`truncate ${
+                            isChecked
+                              ? "text-gray-400 line-through"
+                              : "font-medium"
+                          }`}
+                        >
+                          {ingredient.name}
+                        </span>
+                      </div>
 
-                      <button
-                        onClick={() =>
-                          removeShoppingItem(
-                            ingredient.name,
-                            ingredient.unit
-                          )
-                        }
-                        className="flex min-h-14 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 hover:bg-red-100"
-                        aria-label={`${ingredient.name}を削除`}
+                      <span
+                        className={`ml-3 whitespace-nowrap ${
+                          isChecked
+                            ? "text-gray-400 line-through"
+                            : "font-bold"
+                        }`}
                       >
-                        🗑️
-                      </button>
+                        {ingredient.amount}
+                        {ingredient.unit}
+                      </span>
+                    </button>
 
-                    </li>
-                  );
-                }
-              )}
-
+                    <button
+                      onClick={() =>
+                        removeShoppingItem(
+                          ingredient.name,
+                          ingredient.unit
+                        )
+                      }
+                      className="flex min-h-14 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 hover:bg-red-100"
+                      aria-label={`${ingredient.name}を削除`}
+                    >
+                      🗑️
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
 
             {/* 進捗 */}
             <div className="mt-5">
-
               <div className="flex justify-between text-sm">
-
                 <span className="text-gray-500">
                   買い物進捗
                 </span>
@@ -2152,17 +2239,14 @@ export default function Home() {
                   {checkedItems.length} /{" "}
                   {shoppingList.length}
                 </span>
-
               </div>
 
               <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-200">
-
                 <div
                   className="h-full rounded-full bg-blue-600 transition-all"
                   style={{
                     width: `${
-                      shoppingList.length ===
-                      0
+                      shoppingList.length === 0
                         ? 0
                         : (checkedItems.length /
                             shoppingList.length) *
@@ -2170,14 +2254,10 @@ export default function Home() {
                     }%`,
                   }}
                 />
-
               </div>
-
             </div>
-
           </div>
         )}
-
       </div>
     </main>
   );
